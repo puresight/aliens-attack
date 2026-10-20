@@ -10,7 +10,7 @@ import {
   PLAYER_H,
   PLAYER_W,
 } from './constants';
-import type { Alien, BarrierBlock, Particle, Player, RenderState, Star } from './types';
+import type { Alien, BarrierBlock, Particle, Player, RenderState, Ring, Star } from './types';
 
 function drawStars(ctx: CanvasRenderingContext2D, stars: Star[], time: number): void {
   for (const s of stars) {
@@ -214,6 +214,19 @@ function drawFieldLines(ctx: CanvasRenderingContext2D, time: number): void {
   }
 }
 
+function drawRings(ctx: CanvasRenderingContext2D, rings: Ring[]): void {
+  for (const r of rings) {
+    const t = r.life / r.maxLife;
+    ctx.globalAlpha = t * 0.8;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = 1.5 + 2.5 * t;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
 export function renderGame(ctx: CanvasRenderingContext2D, state: RenderState): void {
   ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
   ctx.fillStyle = COLORS.bg;
@@ -234,6 +247,7 @@ export function renderGame(ctx: CanvasRenderingContext2D, state: RenderState): v
   if (state.player) drawPlayer(ctx, state.player, state.time, state.playerInvulnerable);
   drawBullets(ctx, state);
   drawParticles(ctx, state.particles);
+  drawRings(ctx, state.rings);
 
   ctx.restore();
 }

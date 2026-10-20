@@ -36,6 +36,16 @@ export interface Particle {
   size: number;
 }
 
+export interface Ring {
+  x: number;
+  y: number;
+  r: number;
+  maxR: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
 export interface BarrierBlock {
   x: number;
   y: number;
@@ -57,6 +67,7 @@ export interface PublicState {
   wave: number;
   lives: number;
   newHigh: boolean;
+  multiplier: number;
 }
 
 export interface RenderState {
@@ -65,6 +76,7 @@ export interface RenderState {
   aliens: Alien[];
   bullets: Bullet[];
   particles: Particle[];
+  rings: Ring[];
   player: Player | null;
   playerInvulnerable: boolean;
   shake: number;

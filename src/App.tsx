@@ -5,6 +5,7 @@ import {
   Crosshair,
   Gamepad2,
   Keyboard,
+  MoveHorizontal,
   Pause,
   Play,
   RotateCcw,
@@ -27,6 +28,7 @@ const INITIAL_STATE: PublicState = {
   wave: 1,
   lives: 3,
   newHigh: false,
+  multiplier: 1,
 };
 
 function StatPill({
@@ -37,7 +39,7 @@ function StatPill({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   accent?: string;
 }) {
   return (
@@ -53,6 +55,22 @@ function StatPill({
         {value}
       </span>
     </div>
+  );
+}
+
+function MultiplierBadge({ multiplier }: { multiplier: number }) {
+  if (multiplier <= 1) return null;
+  return (
+    <span
+      className="text-xs font-black px-1.5 py-0.5 rounded animate-pulse-glow tabular-nums"
+      style={{
+        color: '#fde047',
+        background: 'rgba(253, 224, 71, 0.12)',
+        border: '1px solid rgba(253, 224, 71, 0.4)',
+      }}
+    >
+      x{multiplier}
+    </span>
   );
 }
 
@@ -287,6 +305,33 @@ export default function App() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   };
 
+  const sliderProps = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * LOGICAL_W;
+      engineRef.current?.setAim(x);
+      engineRef.current?.setFire(true);
+      buzz(8);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!(e.buttons & 1) && e.pointerType === 'mouse') return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * LOGICAL_W;
+      engineRef.current?.setAim(x);
+    },
+    onPointerUp: () => {
+      engineRef.current?.setAim(null);
+      engineRef.current?.setFire(false);
+    },
+    onPointerCancel: () => {
+      engineRef.current?.setAim(null);
+      engineRef.current?.setFire(false);
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
+
   const playing = state.status === 'playing';
   const { status } = state;
 
@@ -299,9 +344,18 @@ export default function App() {
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
         >
           <StatPill
-            icon={<Crosshair size={11} />}
+            icon={
+              <span className="flex items-center gap-0.5">
+                <Crosshair size={11} />
+              </span>
+            }
             label="Score"
-            value={state.score}
+            value={
+              <span className="flex items-center gap-1">
+                {state.score}
+                <MultiplierBadge multiplier={state.multiplier} />
+              </span>
+            }
             accent="#67e8f9"
           />
           <div className="flex items-center gap-2">
@@ -348,6 +402,24 @@ export default function App() {
                   Start Game
                 </button>
                 <SettingsRow settings={settings} onUpdate={updateSettings} />
+                <button
+                  onClick={() =>
+                    updateSettings({
+                      controlMode: settings.controlMode === 'buttons' ? 'slider' : 'buttons',
+                    })
+                  }
+                  className="neon-btn h-10 px-4 text-xs text-cyan-300 border-cyan-500/30 bg-slate-900/60"
+                >
+                  {settings.controlMode === 'buttons' ? (
+                    <>
+                      <MoveHorizontal size={14} /> Switch to Drag Slider
+                    </>
+                  ) : (
+                    <>
+                      <Gamepad2 size={14} /> Switch to Buttons
+                    </>
+                  )}
+                </button>
                 <div className="flex flex-col items-center gap-1.5 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
                     <Keyboard size={13} /> Arrows / A-D — Space to fire — P to pause
@@ -455,39 +527,65 @@ export default function App() {
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
         >
           {isTouch ? (
-            <div className="flex items-center justify-center gap-3 py-1">
-              <button
-                {...holdProps('left')}
-                disabled={!playing}
-                className="neon-btn h-16 w-20 text-cyan-300 border-cyan-500/40 bg-slate-900/70"
-                aria-label="Move left"
-              >
-                <ChevronLeft size={30} />
-              </button>
-              <button
-                {...fireProps}
-                disabled={!playing}
-                className="neon-btn h-16 flex-1 max-w-[170px] font-bold tracking-widest text-fuchsia-300 border-fuchsia-500/50 bg-fuchsia-500/10"
-                aria-label="Fire"
-              >
-                FIRE
-              </button>
-              <button
-                {...holdProps('right')}
-                disabled={!playing}
-                className="neon-btn h-16 w-20 text-cyan-300 border-cyan-500/40 bg-slate-900/70"
-                aria-label="Move right"
-              >
-                <ChevronRight size={30} />
-              </button>
-              <button
-                onClick={togglePause}
-                className="neon-btn h-16 w-12 text-slate-300 border-slate-600/50 bg-slate-900/70"
-                aria-label="Pause"
-              >
-                <Pause size={18} />
-              </button>
-            </div>
+            settings.controlMode === 'buttons' ? (
+              <div className="flex items-center justify-center gap-3 py-1">
+                <button
+                  {...holdProps('left')}
+                  disabled={!playing}
+                  className="neon-btn h-16 w-20 text-cyan-300 border-cyan-500/40 bg-slate-900/70"
+                  aria-label="Move left"
+                >
+                  <ChevronLeft size={30} />
+                </button>
+                <button
+                  {...fireProps}
+                  disabled={!playing}
+                  className="neon-btn h-16 flex-1 max-w-[170px] font-bold tracking-widest text-fuchsia-300 border-fuchsia-500/50 bg-fuchsia-500/10"
+                  aria-label="Fire"
+                >
+                  FIRE
+                </button>
+                <button
+                  {...holdProps('right')}
+                  disabled={!playing}
+                  className="neon-btn h-16 w-20 text-cyan-300 border-cyan-500/40 bg-slate-900/70"
+                  aria-label="Move right"
+                >
+                  <ChevronRight size={30} />
+                </button>
+                <button
+                  onClick={togglePause}
+                  className="neon-btn h-16 w-12 text-slate-300 border-slate-600/50 bg-slate-900/70"
+                  aria-label="Pause"
+                >
+                  <Pause size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 py-1">
+                <div
+                  {...sliderProps}
+                  data-control-surface
+                  className="flex-1 h-16 rounded-lg border border-fuchsia-500/40 bg-slate-900/70 relative overflow-hidden"
+                  aria-label="Drag to aim and fire"
+                >
+                  <div className="absolute inset-0 flex items-center justify-between px-3 pointer-events-none">
+                    <ChevronLeft size={18} className="text-slate-600" />
+                    <span className="text-[10px] uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                      <MoveHorizontal size={12} /> Drag to aim
+                    </span>
+                    <ChevronRight size={18} className="text-slate-600" />
+                  </div>
+                </div>
+                <button
+                  onClick={togglePause}
+                  className="neon-btn h-16 w-12 text-slate-300 border-slate-600/50 bg-slate-900/70"
+                  aria-label="Pause"
+                >
+                  <Pause size={18} />
+                </button>
+              </div>
+            )
           ) : (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-slate-500">
               <Keyboard size={14} />

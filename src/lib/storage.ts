@@ -1,6 +1,7 @@
 export interface Settings {
   sound: boolean;
   haptics: boolean;
+  controlMode: 'buttons' | 'slider';
 }
 
 const HIGH_SCORE_KEY = 'alien-attack:highscore';
@@ -30,12 +31,13 @@ export function loadSettings(): Settings {
       return {
         sound: parsed.sound !== false,
         haptics: parsed.haptics !== false,
+        controlMode: parsed.controlMode === 'slider' ? 'slider' : 'buttons',
       };
     }
   } catch {
     /* storage unavailable */
   }
-  return { sound: true, haptics: true };
+  return { sound: true, haptics: true, controlMode: 'buttons' };
 }
 
 export function saveSettings(settings: Settings): void {

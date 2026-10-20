@@ -38,6 +38,7 @@ import type {
   Player,
   PublicState,
   RenderState,
+  Ring,
   Star,
 } from './types';
 
@@ -70,6 +71,7 @@ export class GameEngine {
   private aliens: Alien[] = [];
   private bullets: Bullet[] = [];
   private particles: Particle[] = [];
+  private rings: Ring[] = [];
   private barriers: BarrierBlock[] = [];
   private player: Player = { x: LOGICAL_W / 2, y: PLAYER_Y, cooldown: 0 };
   private invuln = 0;
@@ -87,6 +89,7 @@ export class GameEngine {
   private moveRight = false;
   private firing = false;
   private fireHeld = false;
+  private aimTarget: number | null = null;
 
   onState: (s: PublicState) => void = () => {};
 
@@ -120,7 +123,12 @@ export class GameEngine {
       wave: this.wave,
       lives: this.lives,
       newHigh: this.newHigh,
+      multiplier: this.multiplier(),
     });
+  }
+
+  private multiplier(): number {
+    return 1 + Math.floor((this.wave - 1) / 2);
   }
 
   getPublicState(): PublicState {
@@ -131,6 +139,7 @@ export class GameEngine {
       wave: this.wave,
       lives: this.lives,
       newHigh: this.newHigh,
+      multiplier: this.multiplier(),
     };
   }
 
@@ -155,6 +164,7 @@ export class GameEngine {
       aliens: this.aliens,
       bullets: this.bullets,
       particles: this.particles,
+      rings: this.rings,
       player: this.status === 'menu' ? null : this.player,
       playerInvulnerable: this.invuln > 0,
       shake: this.shake,
@@ -175,6 +185,10 @@ export class GameEngine {
 
   tapFire(): void {
     this.firing = true;
+  }
+
+  setAim(x: number | null): void {
+    this.aimTarget = x;
   }
 
   // ---- game flow ----
@@ -288,13 +302,20 @@ export class GameEngine {
   }
 
   private updatePlayer(dt: number): void {
-    let dir = 0;
-    if (this.moveLeft) dir -= 1;
-    if (this.moveRight) dir += 1;
-    this.player.x = Math.max(
-      PLAYER_MIN_X,
-      Math.min(PLAYER_MAX_X, this.player.x + dir * PLAYER_SPEED * dt)
-    );
+    if (this.aimTarget !== null) {
+      // drag-to-aim: ship eases toward the thumb for smooth analog steering
+      const diff = this.aimTarget - this.player.x;
+      this.player.x += diff * Math.min(1, dt * 14);
+      this.player.x = Math.max(PLAYER_MIN_X, Math.min(PLAYER_MAX_X, this.player.x));
+    } else {
+      let dir = 0;
+      if (this.moveLeft) dir -= 1;
+      if (this.moveRight) dir += 1;
+      this.player.x = Math.max(
+        PLAYER_MIN_X,
+        Math.min(PLAYER_MAX_X, this.player.x + dir * PLAYER_SPEED * dt)
+      );
+    }
 
     this.player.cooldown -= dt;
     const wantsFire = this.fireHeld || this.firing;
@@ -396,13 +417,23 @@ export class GameEngine {
       if (!a.alive) continue;
       if (Math.abs(b.x - a.x) <= 20 && Math.abs(b.y - a.y) <= 16) {
         a.alive = false;
-        this.score += ALIEN_POINTS[a.kind];
+        const mult = this.multiplier();
+        this.score += ALIEN_POINTS[a.kind] * mult;
+        this.burst(a.x, a.y, KIND_COLORS[a.kind], 16 + mult * 2);
+        this.rings.push({
+          x: a.x,
+          y: a.y,
+          r: 6,
+          maxR: 30 + mult * 6,
+          life: 0.45,
+          maxLife: 0.45,
+          color: KIND_COLORS[a.kind],
+        });
         if (this.score > this.highScore) {
           this.highScore = this.score;
           if (!this.newHigh) this.newHigh = true;
         }
         this.audio.explosion(false);
-        this.burst(a.x, a.y, KIND_COLORS[a.kind], 14);
         this.shake = Math.max(this.shake, 3);
         return true;
       }
@@ -503,7 +534,7 @@ export class GameEngine {
     if (this.aliveCount() > 0) return;
     if (this.status !== 'playing') return;
     this.status = 'waveClear';
-    this.score += 100 * this.wave;
+    this.score += 100 * this.wave * this.multiplier();
     if (this.score > this.highScore) {
       this.highScore = this.score;
       this.newHigh = true;
@@ -550,6 +581,15 @@ export class GameEngine {
       keep.push(p);
     }
     this.particles = keep;
+
+    const keepRings: Ring[] = [];
+    for (const r of this.rings) {
+      r.life -= dt;
+      if (r.life <= 0) continue;
+      r.r += ((r.maxR - r.r) * dt) / (r.life + 0.05);
+      keepRings.push(r);
+    }
+    this.rings = keepRings;
   }
 
   destroy(): void {
