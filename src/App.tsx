@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ArrowDown,
   ChevronLeft,
   ChevronRight,
   Crosshair,
@@ -130,7 +131,9 @@ export default function App() {
   const [gpActive, setGpActive] = useState(false);
   const [gpToast, setGpToast] = useState<string | null>(null);
   const [touchOverride, setTouchOverride] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
   const toastTimer = useRef<number | undefined>(undefined);
+  const pullRef = useRef({ y: 0, tracking: false, fired: false });
 
   // engine bootstrap
   useEffect(() => {
@@ -195,6 +198,12 @@ export default function App() {
     const down = (e: KeyboardEvent) => {
       const engine = engineRef.current;
       if (!engine) return;
+      // any key (except another ESC) resumes from pause
+      if (engine.status === 'paused' && e.key !== 'Escape' && !e.repeat) {
+        e.preventDefault();
+        engine.togglePause();
+        return;
+      }
       switch (e.key) {
         case 'ArrowLeft':
         case 'a':
@@ -209,7 +218,21 @@ export default function App() {
           e.preventDefault();
           break;
         case ' ':
-          engine.setFire(true);
+          // secret: space starts a game from menu / game over
+          if (engine.status === 'menu' || engine.status === 'gameOver') {
+            audioRef.current.uiClick();
+            engine.startGame();
+          } else {
+            engine.setFire(true);
+          }
+          e.preventDefault();
+          break;
+        case 'Escape':
+          if (engine.status === 'playing') {
+            engine.togglePause();
+          } else if (engine.status === 'paused') {
+            engine.toMenu();
+          }
           e.preventDefault();
           break;
         case 'p':
@@ -369,11 +392,54 @@ export default function App() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   };
 
+  // two-stage pull-down on the play area: first full pull pauses, second quits
+  const pullProps = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      if (engine.status !== 'playing' && engine.status !== 'paused') return;
+      if ((e.target as HTMLElement).closest('button')) return;
+      pullRef.current = { y: e.clientY, tracking: true, fired: false };
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      const p = pullRef.current;
+      if (!p.tracking || p.fired) return;
+      const dy = e.clientY - p.y;
+      const progress = dy <= 0 ? 0 : Math.min(1, dy / 110);
+      setPullProgress(progress);
+      if (progress >= 1) {
+        p.fired = true;
+        setPullProgress(0);
+        const engine = engineRef.current;
+        if (!engine) return;
+        if (engine.status === 'playing') {
+          buzz(10);
+          engine.togglePause();
+        } else if (engine.status === 'paused') {
+          buzz(15);
+          engine.toMenu();
+        }
+      }
+    },
+    onPointerUp: () => {
+      pullRef.current.tracking = false;
+      setPullProgress(0);
+    },
+    onPointerCancel: () => {
+      pullRef.current.tracking = false;
+      setPullProgress(0);
+    },
+  };
+
   const playing = state.status === 'playing';
   const { status } = state;
 
   return (
-    <div className="h-[100dvh] w-full arcade-bg flex items-center justify-center overflow-hidden">
+    <div
+      className="h-[100dvh] w-full arcade-bg flex items-center justify-center overflow-hidden"
+      style={{ overscrollBehavior: 'none' }}
+    >
       <div className="flex flex-col h-full w-full max-w-[480px]">
         {/* Top HUD */}
         <header
@@ -418,8 +484,12 @@ export default function App() {
         {/* Canvas with arcade border */}
         <main className="flex-1 min-h-0 flex items-center justify-center px-2 py-2">
           <div
+            {...pullProps}
             className="relative w-full h-full rounded-xl overflow-hidden border-2 shadow-[0_0_32px_rgba(34,211,238,0.15)]"
-            style={{ borderColor: 'rgba(34, 211, 238, 0.35)' }}
+            style={{
+              borderColor: 'rgba(34, 211, 238, 0.35)',
+              touchAction: 'none',
+            }}
           >
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
 
@@ -561,6 +631,29 @@ export default function App() {
                   <RotateCcw size={14} />
                   Main Menu
                 </button>
+              </div>
+            )}
+            {/* Pull-down gesture indicator */}
+            {(pullProgress > 0 || (isTouch && playing && !gpActive)) && (
+              <div
+                className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+                style={{
+                  opacity:
+                    pullProgress > 0 ? 0.55 + 0.45 * pullProgress : 0.3,
+                }}
+              >
+                <div className="flex items-center gap-1.5 rounded-full bg-slate-900/80 border border-cyan-500/30 px-3 py-1">
+                  <ArrowDown
+                    size={12}
+                    className="text-cyan-300 transition-transform"
+                    style={{ transform: `translateY(${pullProgress * 3}px)` }}
+                  />
+                  <span className="text-[10px] uppercase tracking-widest text-cyan-200">
+                    {state.status === 'paused'
+                      ? 'Pull down to quit'
+                      : 'Pull down to pause'}
+                  </span>
+                </div>
               </div>
             )}
           </div>
