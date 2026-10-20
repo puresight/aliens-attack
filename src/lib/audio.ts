@@ -77,7 +77,22 @@ export class AudioEngine {
   }
 
   laser(): void {
-    this.tone(920, 160, 0.12, 'sawtooth', 0.1);
+    // classic earth-shooter: snappy square-wave downward pitch sweep
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(950, t0);
+    osc.frequency.exponentialRampToValueAtTime(120, t0 + 0.14);
+    g.gain.setValueAtTime(0.3, t0);
+    g.gain.setValueAtTime(0.3, t0 + 0.04);
+    g.gain.linearRampToValueAtTime(0.0001, t0 + 0.14);
+    osc.connect(g);
+    g.connect(this.master);
+    osc.start(t0);
+    osc.stop(t0 + 0.16);
   }
 
   alienLaser(): void {
@@ -85,8 +100,25 @@ export class AudioEngine {
   }
 
   march(note: number): void {
-    const scale = [415, 370, 311, 277];
-    this.tone(scale[note % scale.length], 60, 0.09, 'square', 0.06);
+    // 4-note descending bass loop: D2, A1, Ab1, G1
+    const freqs = [58.7, 55.0, 51.9, 49.0];
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freqs[note % freqs.length], t0);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, t0);
+    g.gain.setValueAtTime(0.5, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+    osc.connect(filter);
+    filter.connect(g);
+    g.connect(this.master);
+    osc.start(t0);
+    osc.stop(t0 + 0.14);
   }
 
   explosion(big = false): void {

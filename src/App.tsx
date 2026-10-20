@@ -386,7 +386,7 @@ export default function App() {
                     className="text-5xl font-black tracking-tight"
                     style={{ color: '#22d3ee', textShadow: '0 0 24px rgba(34, 211, 238, 0.55)' }}
                   >
-                    ALIEN
+                    ALIENS
                     <br />
                     ATTACK
                   </h1>

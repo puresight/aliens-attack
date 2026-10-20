@@ -1,6 +1,6 @@
 {
-  "name": "Alien Attack",
-  "short_name": "AlienAttack",
+  "name": "Aliens Attack",
+  "short_name": "AliensAttack",
   "description": "A neon geometric arcade space shooter. Defend Earth from waves of geometric alien invaders.",
   "start_url": "/",
   "display": "standalone",

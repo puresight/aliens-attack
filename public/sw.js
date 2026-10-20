@@ -1,4 +1,4 @@
-/* Alien Attack service worker — full offline support */
+/* Aliens Attack service worker — full offline support */
 const CACHE = 'alien-attack-v1';
 const PRECACHE = [
   '/',

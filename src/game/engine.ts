@@ -82,6 +82,7 @@ export class GameEngine {
   private fleetDir = 1;
   private fleetStepTimer = 0;
   private marchStep = 0;
+  private marchTimer = 0;
   private alienFireTimer = 0;
   private waveClearTimer = 0;
 
@@ -237,6 +238,7 @@ export class GameEngine {
     this.fleetOffsetY = 0;
     this.fleetDir = 1;
     this.fleetStepTimer = 0;
+    this.marchTimer = 0;
     this.alienFireTimer = 1.2;
     this.bullets = [];
   }
@@ -290,6 +292,10 @@ export class GameEngine {
 
     this.updateParticles(dt);
 
+    if (this.status === 'playing') {
+      this.updateMarch(dt);
+    }
+
     if (this.status !== 'playing') return;
 
     if (this.invuln > 0) this.invuln -= dt;
@@ -338,6 +344,18 @@ export class GameEngine {
     return n;
   }
 
+  private updateMarch(dt: number): void {
+    const alive = this.aliveCount();
+    if (alive === 0) return;
+    // accelerate from ~900ms/step at full rack to ~120ms at 1 alien
+    const interval = Math.max(0.12, 0.12 + (alive - 1) * ((0.9 - 0.12) / 39));
+    this.marchTimer -= dt;
+    if (this.marchTimer > 0) return;
+    this.marchTimer = interval;
+    this.audio.march(this.marchStep);
+    this.marchStep = (this.marchStep + 1) % 4;
+  }
+
   private updateFleet(dt: number): void {
     const total = ALIEN_COLS * ALIEN_ROWS;
     const alive = this.aliveCount();
@@ -371,9 +389,6 @@ export class GameEngine {
       a.x = a.baseX + this.fleetOffsetX;
       a.y = a.baseY + this.fleetOffsetY;
     }
-
-    this.audio.march(this.marchStep);
-    this.marchStep = (this.marchStep + 1) % 4;
   }
 
   private updateBullets(dt: number): void {
