@@ -92,6 +92,15 @@ export class GameEngine {
   private fireHeld = false;
   private aimTarget: number | null = null;
 
+  private gpLeft = false;
+  private gpRight = false;
+  private gpFire = false;
+  private gpPrevStart = false;
+  private gpActiveLatch = false;
+  private gpIdleTimer = 0;
+
+  onGamepadActivity: (active: boolean) => void = () => {};
+
   onState: (s: PublicState) => void = () => {};
 
   constructor(ctx: CanvasRenderingContext2D, audio: AudioEngine) {
@@ -151,6 +160,7 @@ export class GameEngine {
     const frame = (ts: number) => {
       const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
       this.lastTs = ts;
+      this.pollGamepad(dt);
       this.update(dt);
       renderGame(this.ctx, this.getRenderState());
       this.raf = requestAnimationFrame(frame);
@@ -190,6 +200,69 @@ export class GameEngine {
 
   setAim(x: number | null): void {
     this.aimTarget = x;
+  }
+
+  // standard-mapping gamepad polling: dpad 14/15, axis 0 (0.2 deadzone),
+  // fire on 0/1/6/7, start (9) toggles pause or starts from menu
+  private pollGamepad(dt: number): void {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    const pads = navigator.getGamepads();
+    let left = false;
+    let right = false;
+    let fire = false;
+    let start = false;
+    for (const pad of pads) {
+      if (!pad) continue;
+      const b = pad.buttons;
+      const axis = pad.axes.length > 0 ? pad.axes[0] : 0;
+      if (b.length > 14 && b[14].pressed) left = true;
+      if (b.length > 15 && b[15].pressed) right = true;
+      if (Math.abs(axis) > 0.2) {
+        if (axis < 0) left = true;
+        else right = true;
+      }
+      if (
+        (b.length > 0 && b[0].pressed) ||
+        (b.length > 1 && b[1].pressed) ||
+        (b.length > 6 && b[6].pressed) ||
+        (b.length > 7 && b[7].pressed)
+      ) {
+        fire = true;
+      }
+      if (b.length > 9 && b[9].pressed) start = true;
+    }
+    const any = left || right || fire || start;
+
+    if (start && !this.gpPrevStart) {
+      if (this.status === 'menu' || this.status === 'gameOver') {
+        this.startGame();
+      } else {
+        this.togglePause();
+      }
+    }
+    this.gpPrevStart = start;
+
+    if (any) {
+      this.gpLeft = left;
+      this.gpRight = right;
+      this.gpFire = fire;
+      this.gpIdleTimer = 1.5;
+      if (!this.gpActiveLatch) {
+        this.gpActiveLatch = true;
+        this.onGamepadActivity(true);
+      }
+    } else {
+      this.gpIdleTimer -= dt;
+      if (this.gpIdleTimer <= 0) {
+        this.gpLeft = false;
+        this.gpRight = false;
+        this.gpFire = false;
+        if (this.gpActiveLatch) {
+          this.gpActiveLatch = false;
+          this.onGamepadActivity(false);
+        }
+      }
+    }
   }
 
   // ---- game flow ----
@@ -315,8 +388,8 @@ export class GameEngine {
       this.player.x = Math.max(PLAYER_MIN_X, Math.min(PLAYER_MAX_X, this.player.x));
     } else {
       let dir = 0;
-      if (this.moveLeft) dir -= 1;
-      if (this.moveRight) dir += 1;
+      if (this.moveLeft || this.gpLeft) dir -= 1;
+      if (this.moveRight || this.gpRight) dir += 1;
       this.player.x = Math.max(
         PLAYER_MIN_X,
         Math.min(PLAYER_MAX_X, this.player.x + dir * PLAYER_SPEED * dt)
@@ -324,7 +397,7 @@ export class GameEngine {
     }
 
     this.player.cooldown -= dt;
-    const wantsFire = this.fireHeld || this.firing;
+    const wantsFire = this.fireHeld || this.firing || this.gpFire;
     this.firing = false;
     if (wantsFire && this.player.cooldown <= 0) {
       this.player.cooldown = PLAYER_FIRE_COOLDOWN;

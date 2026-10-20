@@ -127,6 +127,10 @@ export default function App() {
   const [isTouch, setIsTouch] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   );
+  const [gpActive, setGpActive] = useState(false);
+  const [gpToast, setGpToast] = useState<string | null>(null);
+  const [touchOverride, setTouchOverride] = useState(false);
+  const toastTimer = useRef<number | undefined>(undefined);
 
   // engine bootstrap
   useEffect(() => {
@@ -136,6 +140,10 @@ export default function App() {
     if (!ctx) return;
     const engine = new GameEngine(ctx, audioRef.current);
     engine.onState = setState;
+    engine.onGamepadActivity = (active) => {
+      setGpActive(active);
+      if (!active) setTouchOverride(false);
+    };
     engine.setHaptics(settings.haptics);
     audioRef.current.enabled = settings.sound;
     engineRef.current = engine;
@@ -241,6 +249,35 @@ export default function App() {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
+  }, []);
+
+  // gamepad connection lifecycle + toast
+  useEffect(() => {
+    const showToast = (id: string) => {
+      setGpToast(id);
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setGpToast(null), 2600);
+    };
+    const connected = (e: Event) => {
+      const gp = (e as GamepadEvent).gamepad;
+      showToast(gp?.id ?? 'Controller');
+      navigator.vibrate?.(20);
+    };
+    const disconnected = () => setGpActive(false);
+    window.addEventListener('gamepadconnected', connected);
+    window.addEventListener('gamepaddisconnected', disconnected);
+    return () => {
+      window.removeEventListener('gamepadconnected', connected);
+      window.removeEventListener('gamepaddisconnected', disconnected);
+      window.clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  // any screen touch restores on-screen controls while a gamepad is active
+  useEffect(() => {
+    const onTouch = () => setTouchOverride(true);
+    window.addEventListener('pointerdown', onTouch);
+    return () => window.removeEventListener('pointerdown', onTouch);
   }, []);
 
   const updateSettings = (patch: Partial<Settings>) => {
@@ -367,6 +404,14 @@ export default function App() {
             />
             <StatPill icon={<Zap size={11} />} label="Wave" value={state.wave} accent="#e879f9" />
           </div>
+          {gpActive && (
+            <span
+              className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-emerald-300 animate-pulse-glow"
+              title="Gamepad active"
+            >
+              <Gamepad2 size={12} /> Pad
+            </span>
+          )}
           <LivesDisplay lives={state.lives} />
         </header>
 
@@ -521,12 +566,25 @@ export default function App() {
           </div>
         </main>
 
+        {/* Gamepad connected toast */}
+        {gpToast && (
+          <div className="fixed left-1/2 -translate-x-1/2 z-50 animate-fade-in" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-400/40 bg-slate-900/90 px-4 py-2 shadow-lg backdrop-blur-sm">
+              <Gamepad2 size={16} className="text-emerald-300" />
+              <span className="text-xs font-semibold text-emerald-200">Controller Connected</span>
+              <span className="max-w-[180px] truncate text-[10px] text-slate-400" title={gpToast}>
+                {gpToast}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Controls */}
         <footer
           className="px-3"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
         >
-          {isTouch ? (
+          {isTouch && !(gpActive && !touchOverride) ? (
             settings.controlMode === 'buttons' ? (
               <div className="flex items-center justify-center gap-3 py-1">
                 <button
@@ -586,6 +644,11 @@ export default function App() {
                 </button>
               </div>
             )
+          ) : gpActive ? (
+            <div className="flex items-center justify-center gap-2 py-3 text-xs text-emerald-300/80">
+              <Gamepad2 size={14} />
+              <span>Controller active — D-Pad / stick to move, A or trigger to fire</span>
+            </div>
           ) : (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-slate-500">
               <Keyboard size={14} />
