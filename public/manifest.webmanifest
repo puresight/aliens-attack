@@ -1,0 +1,31 @@
+{
+  "name": "Alien Attack",
+  "short_name": "AlienAttack",
+  "description": "A neon geometric arcade space shooter. Defend Earth from waves of geometric alien invaders.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#050810",
+  "background_color": "#050810",
+  "categories": ["games"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x513",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

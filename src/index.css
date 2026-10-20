@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #050810;
+  color: #e2e8f0;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+.neon-btn {
+  @apply flex items-center justify-center gap-2 rounded-lg border transition-all duration-150 select-none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
+.neon-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.neon-btn:disabled {
+  opacity: 0.4;
+}
+
+/* subtle grid background */
+.arcade-bg {
+  background-color: #050810;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(34, 211, 238, 0.06), transparent 60%),
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    40px 40px,
+    40px 40px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 1.6s ease-in-out infinite;
+}
