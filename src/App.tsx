@@ -127,6 +127,9 @@ export default function App() {
   const [isTouch, setIsTouch] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   );
+  const [isWide, setIsWide] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
+  );
   const [gpActive, setGpActive] = useState(false);
   const [gpToast, setGpToast] = useState<string | null>(null);
   const [touchOverride, setTouchOverride] = useState(false);
@@ -187,6 +190,15 @@ export default function App() {
   useEffect(() => {
     const mq = window.matchMedia('(pointer: coarse)');
     const check = () => setIsTouch(mq.matches);
+    check();
+    mq.addEventListener?.('change', check);
+    return () => mq.removeEventListener?.('change', check);
+  }, []);
+
+  // wide layout (HUD strip + side hints) vs compact in-frame layout
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 900px)');
+    const check = () => setIsWide(mq.matches);
     check();
     mq.addEventListener?.('change', check);
     return () => mq.removeEventListener?.('change', check);
@@ -424,28 +436,31 @@ export default function App() {
       className="h-[100dvh] w-full arcade-bg flex items-center justify-center overflow-hidden"
       style={{ overscrollBehavior: 'none' }}
     >
-      <div className="flex flex-col h-full w-full max-w-[480px]">
-        {/* Top HUD */}
-        <header
-          className="flex items-center justify-between gap-2 px-3"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
-        >
-          <StatPill
-            icon={
-              <span className="flex items-center gap-0.5">
-                <Crosshair size={11} />
-              </span>
-            }
-            label="Score"
-            value={
-              <span className="flex items-center gap-1">
-                {state.score}
-                <MultiplierBadge multiplier={state.multiplier} />
-              </span>
-            }
-            accent="#67e8f9"
-          />
-          <div className="flex items-center gap-2">
+      <div
+        className={
+          isWide
+            ? 'flex h-full w-full max-w-[1200px] gap-4 px-5 py-4'
+            : 'flex flex-col h-full w-full max-w-[480px]'
+        }
+        style={
+          isWide
+            ? undefined
+            : { paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)' }
+        }
+      >
+        {isWide && (
+          <aside className="flex flex-col justify-center gap-3 w-[128px] shrink-0">
+            <StatPill
+              icon={<Crosshair size={11} />}
+              label="Score"
+              value={
+                <span className="flex items-center gap-1">
+                  {state.score}
+                  <MultiplierBadge multiplier={state.multiplier} />
+                </span>
+              }
+              accent="#67e8f9"
+            />
             <StatPill
               icon={<Trophy size={11} />}
               label="Best"
@@ -453,17 +468,17 @@ export default function App() {
               accent="#fde047"
             />
             <StatPill icon={<Zap size={11} />} label="Wave" value={state.wave} accent="#e879f9" />
-          </div>
-          {gpActive && (
-            <span
-              className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-emerald-300 animate-pulse-glow"
-              title="Gamepad active"
-            >
-              <Gamepad2 size={12} /> Pad
-            </span>
-          )}
-          <LivesDisplay lives={state.lives} />
-        </header>
+            <LivesDisplay lives={state.lives} />
+            {gpActive && (
+              <span
+                className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-emerald-300 animate-pulse-glow"
+                title="Gamepad active"
+              >
+                <Gamepad2 size={12} /> Pad
+              </span>
+            )}
+          </aside>
+        )}
 
         {/* Canvas with arcade border */}
         <main className="flex-1 min-h-0 flex items-center justify-center px-2 py-2">
@@ -476,6 +491,45 @@ export default function App() {
             }}
           >
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
+
+            {/* Compact in-frame HUD (narrow screens) */}
+            {!isWide && (
+              <div className="absolute top-1.5 inset-x-2 z-30 flex items-center justify-between pointer-events-none">
+                <span className="flex items-center gap-1 rounded bg-slate-950/60 px-2 py-0.5 text-xs font-bold tabular-nums text-cyan-300">
+                  {state.score}
+                  <MultiplierBadge multiplier={state.multiplier} />
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="rounded bg-slate-950/60 px-2 py-0.5 text-xs font-bold tabular-nums text-yellow-300">
+                    {state.highScore}
+                  </span>
+                  <span className="rounded bg-slate-950/60 px-2 py-0.5 text-xs font-bold tabular-nums text-fuchsia-300">
+                    W{state.wave}
+                  </span>
+                  <span className="flex items-center gap-0.5 rounded bg-slate-950/60 px-2 py-1">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Gamepad2
+                        key={i}
+                        size={10}
+                        className={i < state.lives ? 'text-cyan-400' : 'text-slate-700'}
+                      />
+                    ))}
+                  </span>
+                  {gpActive && (
+                    <Gamepad2 size={12} className="text-emerald-300 animate-pulse-glow" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* In-frame keyboard hint (narrow desktop) */}
+            {!isWide && !isTouch && (
+              <div className="absolute bottom-2 inset-x-0 z-30 flex justify-center pointer-events-none">
+                <span className="flex items-center gap-1.5 rounded-full bg-slate-950/60 px-3 py-1 text-[10px] text-slate-400">
+                  <Keyboard size={11} /> Arrows / A-D to move — Spacebar to fire
+                </span>
+              </div>
+            )}
 
             {/* Menu */}
             {status === 'menu' && (
@@ -620,7 +674,7 @@ export default function App() {
             {/* Pull-down gesture indicator */}
             {(pullProgress > 0 || (isTouch && playing && !gpActive)) && (
               <div
-                className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+                className="absolute top-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
                 style={{
                   opacity:
                     pullProgress > 0 ? 0.55 + 0.45 * pullProgress : 0.3,
@@ -643,6 +697,23 @@ export default function App() {
           </div>
         </main>
 
+        {/* Hints in the right bottom quadrant (wide screens) */}
+        {isWide && !isTouch && (
+          <aside className="flex flex-col justify-end items-start w-[180px] shrink-0 gap-2 pb-10 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <Keyboard size={13} /> Arrows / A-D — move
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Crosshair size={13} /> Space — fire
+            </span>
+            {gpActive && (
+              <span className="flex items-center gap-1.5 text-emerald-300/80">
+                <Gamepad2 size={13} /> Controller active
+              </span>
+            )}
+          </aside>
+        )}
+
         {/* Gamepad connected toast */}
         {gpToast && (
           <div className="fixed left-1/2 -translate-x-1/2 z-50 animate-fade-in" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
@@ -661,7 +732,7 @@ export default function App() {
           className="px-3"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
         >
-          {isTouch && !(gpActive && !touchOverride) ? (
+          {isTouch && !(gpActive && !touchOverride) && (
             settings.controlMode === 'buttons' ? (
               <div className="flex items-center justify-center gap-3 py-1">
                 <button
@@ -707,16 +778,6 @@ export default function App() {
                 </div>
               </div>
             )
-          ) : gpActive ? (
-            <div className="flex items-center justify-center gap-2 py-3 text-xs text-emerald-300/80">
-              <Gamepad2 size={14} />
-              <span>Controller active — D-Pad / stick to move, A or trigger to fire</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 py-3 text-xs text-slate-500">
-              <Keyboard size={14} />
-              <span>Arrow keys / A-D to move — Spacebar to fire</span>
-            </div>
           )}
         </footer>
       </div>
