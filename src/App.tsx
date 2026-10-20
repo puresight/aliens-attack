@@ -456,8 +456,8 @@ export default function App() {
           isWide
             ? undefined
             : {
-                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1px)',
-                paddingLeft: 1,
+                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2px)',
+                paddingLeft: 2,
               }
         }
       >
