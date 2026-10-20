@@ -7,7 +7,6 @@ import {
   Gamepad2,
   Keyboard,
   MoveHorizontal,
-  Pause,
   Play,
   RotateCcw,
   Skull,
@@ -235,10 +234,6 @@ export default function App() {
           }
           e.preventDefault();
           break;
-        case 'p':
-        case 'P':
-          engine.togglePause();
-          break;
         case 'Enter':
           if (engine.status === 'menu' || engine.status === 'gameOver') {
             audioRef.current.uiClick();
@@ -325,20 +320,9 @@ export default function App() {
     engineRef.current?.startGame();
   };
 
-  const resumeGame = () => {
-    audioRef.current.uiClick();
-    engineRef.current?.togglePause();
-  };
-
   const toMenu = () => {
     audioRef.current.uiClick();
     engineRef.current?.toMenu();
-  };
-
-  const togglePause = () => {
-    audioRef.current.uiClick();
-    buzz(10);
-    engineRef.current?.togglePause();
   };
 
   const holdProps = (dir: 'left' | 'right') => ({
@@ -537,7 +521,7 @@ export default function App() {
                 </button>
                 <div className="flex flex-col items-center gap-1.5 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
-                    <Keyboard size={13} /> Arrows / A-D — Space to fire — P to pause
+                    <Keyboard size={13} /> Arrows / A-D — Space to fire
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Gamepad2 size={13} /> Touch controls on mobile
@@ -553,15 +537,15 @@ export default function App() {
 
             {/* Paused */}
             {status === 'paused' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-slate-950/85 backdrop-blur-sm animate-fade-in cursor-pointer"
+                onPointerDown={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  engineRef.current?.togglePause();
+                }}
+              >
                 <h2 className="text-3xl font-bold text-cyan-300 tracking-widest">PAUSED</h2>
-                <button
-                  onClick={resumeGame}
-                  className="neon-btn h-12 px-8 font-bold bg-cyan-500/15 text-cyan-300 border-cyan-400/50"
-                >
-                  <Play size={18} />
-                  Resume
-                </button>
+                <p className="text-xs text-slate-400">Tap anywhere to resume</p>
                 <SettingsRow settings={settings} onUpdate={updateSettings} />
                 <button
                   onClick={toMenu}
@@ -704,13 +688,6 @@ export default function App() {
                 >
                   <ChevronRight size={30} />
                 </button>
-                <button
-                  onClick={togglePause}
-                  className="neon-btn h-16 w-12 text-slate-300 border-slate-600/50 bg-slate-900/70"
-                  aria-label="Pause"
-                >
-                  <Pause size={18} />
-                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3 py-1">
@@ -728,13 +705,6 @@ export default function App() {
                     <ChevronRight size={18} className="text-slate-600" />
                   </div>
                 </div>
-                <button
-                  onClick={togglePause}
-                  className="neon-btn h-16 w-12 text-slate-300 border-slate-600/50 bg-slate-900/70"
-                  aria-label="Pause"
-                >
-                  <Pause size={18} />
-                </button>
               </div>
             )
           ) : gpActive ? (
@@ -745,7 +715,7 @@ export default function App() {
           ) : (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-slate-500">
               <Keyboard size={14} />
-              <span>Arrow keys / A-D to move — Spacebar to fire — P to pause</span>
+              <span>Arrow keys / A-D to move — Spacebar to fire</span>
             </div>
           )}
         </footer>
