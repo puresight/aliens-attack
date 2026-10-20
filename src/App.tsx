@@ -130,6 +130,9 @@ export default function App() {
   const [isWide, setIsWide] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
   );
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => typeof document !== 'undefined' && !!document.fullscreenElement
+  );
   const [gpActive, setGpActive] = useState(false);
   const [gpToast, setGpToast] = useState<string | null>(null);
   const [touchOverride, setTouchOverride] = useState(false);
@@ -202,6 +205,13 @@ export default function App() {
     check();
     mq.addEventListener?.('change', check);
     return () => mq.removeEventListener?.('change', check);
+  }, []);
+
+  // borderless edge-to-edge frame while in fullscreen
+  useEffect(() => {
+    const check = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', check);
+    return () => document.removeEventListener('fullscreenchange', check);
   }, []);
 
   // keyboard bindings
@@ -439,13 +449,13 @@ export default function App() {
       <div
         className={
           isWide
-            ? 'flex h-full w-full max-w-[1200px] gap-4 px-5 py-4'
-            : 'flex flex-col h-full w-full max-w-[480px]'
+            ? 'flex h-full w-full max-w-[1200px] gap-4 px-5'
+            : 'flex flex-col h-full w-full'
         }
         style={
           isWide
             ? undefined
-            : { paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)' }
+            : { paddingTop: 'env(safe-area-inset-top, 0px)' }
         }
       >
         {isWide && (
@@ -480,11 +490,15 @@ export default function App() {
           </aside>
         )}
 
-        {/* Canvas with arcade border */}
-        <main className="flex-1 min-h-0 flex items-center justify-center px-2 py-2">
+        {/* Play area — flush to the viewport vertically; borderless in fullscreen */}
+        <main className="flex-1 min-h-0 flex">
           <div
             {...pullProps}
-            className="relative w-full h-full rounded-xl overflow-hidden border-2 shadow-[0_0_32px_rgba(34,211,238,0.15)]"
+            className={
+              isWide || !isFullscreen
+                ? 'relative w-full h-full rounded-xl overflow-hidden border-2 shadow-[0_0_32px_rgba(34,211,238,0.15)]'
+                : 'relative w-full h-full overflow-hidden'
+            }
             style={{
               borderColor: 'rgba(34, 211, 238, 0.35)',
               touchAction: 'none',
