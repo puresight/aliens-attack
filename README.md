@@ -1,3 +1,3 @@
-# aliens-attack
+# Aliens Attack
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-tzemyuty)
+- [a](./architecture.md)
